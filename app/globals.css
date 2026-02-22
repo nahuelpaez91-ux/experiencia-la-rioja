@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #F3EEE6;
+  --paper-card: #FAF6EF;
+  --paper-border: #E6DCCF;
+  --primary: #D07A2D;
+  --primary-hover: #B8641F;
+  --olive: #4E6B3A;
+  --olive-hover: #3E562F;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--paper);
+  color: #1c1917;
+}
