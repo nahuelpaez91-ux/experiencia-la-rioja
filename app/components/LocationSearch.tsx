@@ -12,9 +12,7 @@ export default function LocationSearch({ defaultValue }: { defaultValue?: string
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const listRef = useRef<HTMLDivElement>(null);
 
-    // Cerrar al click fuera
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -66,7 +64,6 @@ export default function LocationSearch({ defaultValue }: { defaultValue?: string
                 Localidad
             </label>
 
-            {/* Hidden input para el form submit */}
             <input type="hidden" name="location" value={selected || input} />
 
             <div style={{
@@ -97,7 +94,6 @@ export default function LocationSearch({ defaultValue }: { defaultValue?: string
                 )}
             </div>
 
-            {/* Dropdown — usa position fixed para no ser cortado por overflow */}
             {open && (
                 <DropdownPortal
                     containerRef={containerRef}
@@ -132,9 +128,8 @@ export default function LocationSearch({ defaultValue }: { defaultValue?: string
     );
 }
 
-// Subcomponente que calcula posición absoluta sobre el sidebar sin ser cortado
 function DropdownPortal({ containerRef, children, onClose }: {
-    containerRef: React.RefObject<HTMLDivElement>;
+    containerRef: React.RefObject<HTMLDivElement | null>;
     children: React.ReactNode;
     onClose: () => void;
 }) {
