@@ -26,7 +26,7 @@ export default function HeaderAuth() {
         }
 
         // onAuthStateChange dispara INITIAL_SESSION al montar — cubre navegación entre páginas
-        const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
                 setUser(session.user);
                 loadProfile(session.user.id);
@@ -82,7 +82,6 @@ export default function HeaderAuth() {
                         border: `1px solid ${COLORS.border}`,
                         boxShadow: "0 12px 32px rgba(0,0,0,0.12)", minWidth: 230, zIndex: 100
                     }}>
-                        {/* Perfil header */}
                         <div style={{ padding: "10px 14px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                             <Avatar src={profile?.avatar_url} initials={initials} bg={rc.bg} size={44} />
                             <div style={{ minWidth: 0 }}>
