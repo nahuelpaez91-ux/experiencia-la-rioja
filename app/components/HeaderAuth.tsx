@@ -26,7 +26,7 @@ export default function HeaderAuth() {
         }
 
         // onAuthStateChange dispara INITIAL_SESSION al montar — cubre navegación entre páginas
-        const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = sb.auth.onAuthStateChange((_event: any, session: any) => {
             if (session?.user) {
                 setUser(session.user);
                 loadProfile(session.user.id);
