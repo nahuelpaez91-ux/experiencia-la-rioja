@@ -1,7 +1,7 @@
 // app/pago/exitoso/page.tsx
 // MP redirige acá cuando el pago fue aprobado
 
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 const COLORS = { green: "#4E6B3A", orange: "#D07A2D", bg: "#F3EEE6", border: "#e7e2da" };
 
@@ -17,8 +17,7 @@ export default async function PagoExitosoPage({
 
     let booking: any = null;
     if (bookingId) {
-        const supabase = createClient();
-        const { data } = await supabase
+        const { data } = await supabaseAdmin
             .from("bookings")
             .select(`
         id, user_name, user_email, people, total_price, status, payment_status,
