@@ -10,13 +10,11 @@ const COLORS = {
     border: "#e7e2da",
 };
 
-// Rutas donde NO mostrar el navbar (panel proveedor y admin tienen su propio header)
 const HIDDEN_ROUTES = ["/proveedor", "/admin", "/auth"];
 
 export default function Navbar() {
     const pathname = usePathname();
 
-    // Ocultar en rutas de auth, proveedor y admin
     if (HIDDEN_ROUTES.some((r) => pathname?.startsWith(r))) return null;
 
     return (
@@ -64,7 +62,7 @@ export default function Navbar() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <HeaderAuth />
                     <Link
-                        href="/auth/login"
+                        href="/proveedor/registro"
                         style={{
                             backgroundColor: COLORS.orange,
                             color: "#fff",
