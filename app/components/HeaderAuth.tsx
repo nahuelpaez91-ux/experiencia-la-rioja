@@ -11,7 +11,6 @@ const ROLE_CONFIG = {
     user: { label: "Usuario", bg: "#4E6B3A", icon: "👤", badge: "USUARIO" },
 };
 
-// Roles que puede tener cada rol base
 const AVAILABLE_MODES: Record<string, { role: string; label: string; icon: string; href: string }[]> = {
     provider: [
         { role: "user", label: "Modo usuario", icon: "👤", href: "/" },
@@ -37,7 +36,6 @@ export default function HeaderAuth() {
         async function loadProfile(userId: string) {
             const { data } = await sb.from("profiles").select("full_name,role,avatar_url").eq("id", userId).single();
             setProfile(data);
-            // Restaurar modo guardado o usar el rol real
             const saved = localStorage.getItem(`mode_${userId}`);
             if (saved && AVAILABLE_MODES[data?.role]?.find((m: any) => m.role === saved)) {
                 setActiveMode(saved);
@@ -113,7 +111,6 @@ export default function HeaderAuth() {
                         border: `1px solid ${COLORS.border}`,
                         boxShadow: "0 12px 32px rgba(0,0,0,0.12)", minWidth: 240, zIndex: 100
                     }}>
-                        {/* Header del menú */}
                         <div style={{ padding: "10px 14px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                             <Avatar src={profile?.avatar_url} initials={initials} bg={rc.bg} size={44} />
                             <div style={{ minWidth: 0 }}>
@@ -128,7 +125,6 @@ export default function HeaderAuth() {
 
                         <hr style={{ border: "none", borderTop: `1px solid ${COLORS.border}`, margin: "0 4px 4px" }} />
 
-                        {/* Switch de modos — solo si tiene más de un modo disponible */}
                         {availableModes.length > 1 && (
                             <>
                                 <div style={{ padding: "4px 12px 6px", fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Cambiar modo</div>
@@ -163,9 +159,14 @@ export default function HeaderAuth() {
                             </>
                         )}
 
-                        {/* Links normales */}
                         <Item href="/perfil" icon="👤" label="Mi perfil" close={() => setOpen(false)} />
                         <Item href="/mis-reservas" icon="🎫" label="Mis reservas" close={() => setOpen(false)} />
+                        {(realRole === "provider" || realRole === "admin") && (
+                            <Item href="/proveedor" icon="🗺️" label="Panel proveedor" close={() => setOpen(false)} color={COLORS.orange} />
+                        )}
+                        {realRole === "admin" && (
+                            <Item href="/admin" icon="⚙️" label="Panel admin" close={() => setOpen(false)} color="#6B4FBB" />
+                        )}
 
                         <hr style={{ border: "none", borderTop: `1px solid ${COLORS.border}`, margin: "4px 4px 0" }} />
                         <button onClick={logout} style={{
