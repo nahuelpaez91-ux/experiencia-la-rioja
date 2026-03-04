@@ -10,6 +10,14 @@ const COLORS = {
     border: "#e7e2da",
 };
 
+const DEPARTAMENTOS = [
+    "Capital", "Arauco", "Castro Barros", "Chamical", "Chilecito",
+    "Coronel Felipe Varela", "Famatina", "General Ángel Vicente Peñaloza",
+    "General Belgrano", "General Juan Facundo Quiroga", "General Lamadrid",
+    "General San Martín", "Independencia", "Jachal", "Rivadavia",
+    "San Blas de los Sauces", "Shincal", "Vinchina"
+];
+
 const inp: React.CSSProperties = {
     width: "100%", boxSizing: "border-box" as const,
     borderRadius: 12, border: `1px solid #e7e2da`,
@@ -19,6 +27,10 @@ const inp: React.CSSProperties = {
 
 const lbl: React.CSSProperties = {
     fontSize: 12, fontWeight: 600, color: "#777", display: "block",
+};
+
+const hint: React.CSSProperties = {
+    fontSize: 11, color: "#aaa", marginTop: 4, display: "block",
 };
 
 export default function RegistroProveedorPage() {
@@ -36,18 +48,22 @@ export default function RegistroProveedorPage() {
     const [form, setForm] = useState({
         full_name: "",
         phone: "",
-        location: "",
+        departamento: "",
+        localidad: "",
         address: "",
     });
 
     const [profileUrl, setProfileUrl] = useState<string | null>(null);
-    const [dniUrl, setDniUrl] = useState<string | null>(null);
+    const [dniFrenteUrl, setDniFrenteUrl] = useState<string | null>(null);
+    const [dniDorsoUrl, setDniDorsoUrl] = useState<string | null>(null);
     const [habilitacionUrl, setHabilitacionUrl] = useState<string | null>(null);
     const [uploadingProfile, setUploadingProfile] = useState(false);
-    const [uploadingDni, setUploadingDni] = useState(false);
+    const [uploadingDniFrente, setUploadingDniFrente] = useState(false);
+    const [uploadingDniDorso, setUploadingDniDorso] = useState(false);
     const [uploadingHab, setUploadingHab] = useState(false);
     const profileRef = useRef<HTMLInputElement>(null);
-    const dniRef = useRef<HTMLInputElement>(null);
+    const dniFrenteRef = useRef<HTMLInputElement>(null);
+    const dniDorsoRef = useRef<HTMLInputElement>(null);
     const habRef = useRef<HTMLInputElement>(null);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [formLoading, setFormLoading] = useState(false);
@@ -70,7 +86,6 @@ export default function RegistroProveedorPage() {
             const { data: prof } = await supabase.from("profiles").select("role, provider_status, full_name").eq("id", data.user.id).single();
             if (prof?.role === "provider") { window.location.href = "/proveedor"; return; }
             if (prof?.provider_status === "pending") { setStep("success"); setAuthLoading(false); return; }
-            // Pre-llenar nombre si ya lo tiene
             if (prof?.full_name) setForm(f => ({ ...f, full_name: prof.full_name }));
             setUser(data.user);
             setStep("form");
@@ -85,11 +100,12 @@ export default function RegistroProveedorPage() {
         });
     }
 
-    async function uploadFile(file: File, type: "profile" | "dni" | "habilitacion") {
+    async function uploadFile(file: File, type: "profile" | "dni_frente" | "dni_dorso" | "habilitacion") {
         const { data: { user: u } } = await supabase.auth.getUser();
         if (!u) return;
         if (type === "profile") setUploadingProfile(true);
-        else if (type === "dni") setUploadingDni(true);
+        else if (type === "dni_frente") setUploadingDniFrente(true);
+        else if (type === "dni_dorso") setUploadingDniDorso(true);
         else setUploadingHab(true);
 
         const path = `docs/${u.id}/${type}-${Date.now()}-${file.name}`;
@@ -98,13 +114,14 @@ export default function RegistroProveedorPage() {
         const url = supabase.storage.from("experiences").getPublicUrl(data.path).data.publicUrl;
 
         if (type === "profile") { setProfileUrl(url); setUploadingProfile(false); }
-        else if (type === "dni") { setDniUrl(url); setUploadingDni(false); }
+        else if (type === "dni_frente") { setDniFrenteUrl(url); setUploadingDniFrente(false); }
+        else if (type === "dni_dorso") { setDniDorsoUrl(url); setUploadingDniDorso(false); }
         else { setHabilitacionUrl(url); setUploadingHab(false); }
     }
 
     async function handleSubmit() {
-        if (!form.full_name || !form.phone) {
-            setFormError("Completá los campos obligatorios: nombre completo y teléfono.");
+        if (!form.full_name || !form.phone || !form.departamento) {
+            setFormError("Completá los campos obligatorios: nombre, teléfono y departamento.");
             return;
         }
         if (!acceptedTerms) {
@@ -121,10 +138,12 @@ export default function RegistroProveedorPage() {
             full_name: form.full_name,
             phone: form.phone,
             whatsapp: form.phone,
-            location: form.location,
+            departamento: form.departamento,
+            localidad: form.localidad,
             address: form.address,
             avatar_url: profileUrl,
-            dni_url: dniUrl,
+            dni_url: dniFrenteUrl,
+            dni_dorso_url: dniDorsoUrl,
             habilitacion_url: habilitacionUrl,
             provider_status: "pending",
             role: "pending_provider",
@@ -215,10 +234,7 @@ export default function RegistroProveedorPage() {
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 16px", color: "#222" }}>📸 Foto de perfil</h3>
                     <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
                         <div onClick={() => profileRef.current?.click()} style={{ width: 90, height: 90, borderRadius: "50%", border: `2px dashed ${profileUrl ? COLORS.green : COLORS.border}`, backgroundColor: profileUrl ? "#f0f7eb" : "#f9f7f4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", flexShrink: 0 }}>
-                            {profileUrl
-                                ? <img src={profileUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                : <span style={{ fontSize: 32 }}>{uploadingProfile ? "⏳" : "👤"}</span>
-                            }
+                            {profileUrl ? <img src={profileUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 32 }}>{uploadingProfile ? "⏳" : "👤"}</span>}
                         </div>
                         <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "#555" }}>{profileUrl ? "✅ Foto cargada" : "Subí una foto de perfil"}</div>
@@ -230,38 +246,62 @@ export default function RegistroProveedorPage() {
 
                     {/* Datos personales */}
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 20px", color: "#222" }}>📋 Datos personales</h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                        <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div>
                             <label style={lbl}>Nombre completo *</label>
                             <input style={inp} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Ej: Juan Pérez" />
+                            <span style={hint}>⚠️ Escribí tu nombre y apellido tal como figura en tu DNI.</span>
                         </div>
                         <div>
                             <label style={lbl}>Teléfono / WhatsApp *</label>
                             <input style={inp} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="3804001234" />
+                            <span style={hint}>⚠️ Ingresá un número al que los clientes puedan contactarte.</span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                            <div>
+                                <label style={lbl}>Departamento *</label>
+                                <select style={inp} value={form.departamento} onChange={(e) => setForm({ ...form, departamento: e.target.value })}>
+                                    <option value="">Seleccioná</option>
+                                    {DEPARTAMENTOS.map((d) => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                                <span style={hint}>⚠️ Seleccioná el departamento donde operás.</span>
+                            </div>
+                            <div>
+                                <label style={lbl}>Localidad</label>
+                                <input style={inp} value={form.localidad} onChange={(e) => setForm({ ...form, localidad: e.target.value })} placeholder="Ej: Anillaco" />
+                                <span style={hint}>⚠️ Escribí la localidad correctamente.</span>
+                            </div>
                         </div>
                         <div>
-                            <label style={lbl}>Localidad</label>
-                            <input style={inp} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Ej: Chilecito" />
-                        </div>
-                        <div style={{ gridColumn: "1 / -1" }}>
                             <label style={lbl}>Domicilio actual</label>
                             <input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Ej: Av. San Martín 456, Chilecito" />
+                            <span style={hint}>⚠️ Ingresá tu domicilio completo: calle, número y localidad.</span>
                         </div>
                     </div>
 
                     {/* Documentación */}
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "28px 0 8px", color: "#222" }}>📄 Documentación</h3>
-                    <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Podés enviar los documentos ahora o después.</p>
+                    <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Podés enviar los documentos ahora o después. Las fotos deben ser claras y legibles.</p>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                        <div onClick={() => dniRef.current?.click()} style={{ border: `2px dashed ${dniUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: dniUrl ? "#f0f7eb" : "#f9f7f4" }}>
-                            <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingDni ? "⏳" : dniUrl ? "✅" : "🪪"}</div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: dniUrl ? COLORS.green : "#666" }}>{uploadingDni ? "Subiendo..." : dniUrl ? "DNI cargado" : "Subir DNI"}</div>
-                            <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>JPG, PNG o PDF</div>
+                        {/* DNI Frente */}
+                        <div onClick={() => dniFrenteRef.current?.click()} style={{ border: `2px dashed ${dniFrenteUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: dniFrenteUrl ? "#f0f7eb" : "#f9f7f4" }}>
+                            <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingDniFrente ? "⏳" : dniFrenteUrl ? "✅" : "🪪"}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: dniFrenteUrl ? COLORS.green : "#666" }}>{uploadingDniFrente ? "Subiendo..." : dniFrenteUrl ? "DNI frente cargado" : "DNI — frente"}</div>
+                            <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>Foto del frente del DNI</div>
                         </div>
-                        <input ref={dniRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "dni"); }} />
+                        <input ref={dniFrenteRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "dni_frente"); }} />
 
-                        <div onClick={() => habRef.current?.click()} style={{ border: `2px dashed ${habilitacionUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: habilitacionUrl ? "#f0f7eb" : "#f9f7f4" }}>
+                        {/* DNI Dorso */}
+                        <div onClick={() => dniDorsoRef.current?.click()} style={{ border: `2px dashed ${dniDorsoUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: dniDorsoUrl ? "#f0f7eb" : "#f9f7f4" }}>
+                            <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingDniDorso ? "⏳" : dniDorsoUrl ? "✅" : "🪪"}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: dniDorsoUrl ? COLORS.green : "#666" }}>{uploadingDniDorso ? "Subiendo..." : dniDorsoUrl ? "DNI dorso cargado" : "DNI — dorso"}</div>
+                            <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>Foto del dorso del DNI</div>
+                        </div>
+                        <input ref={dniDorsoRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "dni_dorso"); }} />
+
+                        {/* Habilitación */}
+                        <div onClick={() => habRef.current?.click()} style={{ border: `2px dashed ${habilitacionUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: habilitacionUrl ? "#f0f7eb" : "#f9f7f4", gridColumn: "1 / -1" }}>
                             <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingHab ? "⏳" : habilitacionUrl ? "✅" : "📋"}</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: habilitacionUrl ? COLORS.green : "#666" }}>{uploadingHab ? "Subiendo..." : habilitacionUrl ? "Habilitación cargada" : "Habilitación municipal"}</div>
                             <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>JPG, PNG o PDF</div>
@@ -269,20 +309,13 @@ export default function RegistroProveedorPage() {
                         <input ref={habRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "habilitacion"); }} />
                     </div>
 
-                    {/* Términos y condiciones */}
+                    {/* Términos */}
                     <div style={{ marginTop: 24, padding: 16, backgroundColor: COLORS.bg, borderRadius: 14, border: `1px solid ${COLORS.border}` }}>
                         <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
-                            <input
-                                type="checkbox"
-                                checked={acceptedTerms}
-                                onChange={(e) => setAcceptedTerms(e.target.checked)}
-                                style={{ marginTop: 2, width: 16, height: 16, cursor: "pointer", accentColor: COLORS.green }}
-                            />
+                            <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, cursor: "pointer", accentColor: COLORS.green }} />
                             <span style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>
                                 Leí y acepto los{" "}
-                                <a href="/terminos-y-condiciones" target="_blank" style={{ color: COLORS.green, fontWeight: 700 }}>
-                                    Términos y Condiciones
-                                </a>
+                                <a href="/terminos-y-condiciones" target="_blank" style={{ color: COLORS.green, fontWeight: 700 }}>Términos y Condiciones</a>
                                 {" "}de Experiencia La Rioja para proveedores.
                             </span>
                         </label>
@@ -291,7 +324,7 @@ export default function RegistroProveedorPage() {
                     {formError && <div style={{ marginTop: 16, color: "#c0392b", fontSize: 13, backgroundColor: "#fdecea", borderRadius: 10, padding: "10px 14px" }}>{formError}</div>}
 
                     <button onClick={handleSubmit} disabled={formLoading}
-                        style={{ marginTop: 20, width: "100%", backgroundColor: acceptedTerms ? COLORS.green : "#ccc", color: "#fff", border: "none", borderRadius: 14, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: acceptedTerms ? "pointer" : "not-allowed", transition: "background 0.2s" }}>
+                        style={{ marginTop: 20, width: "100%", backgroundColor: acceptedTerms ? COLORS.green : "#ccc", color: "#fff", border: "none", borderRadius: 14, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: acceptedTerms ? "pointer" : "not-allowed" }}>
                         {formLoading ? "Enviando solicitud..." : "Enviar solicitud →"}
                     </button>
                     <p style={{ fontSize: 11, color: "#aaa", textAlign: "center", marginTop: 10 }}>Tu solicitud será revisada en 24-48hs. Te avisamos por email cuando esté aprobada.</p>
