@@ -39,7 +39,6 @@ export default function Navbar() {
                     height: 52,
                 }}
             >
-                {/* Logo */}
                 <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
                         🏔️
@@ -50,7 +49,6 @@ export default function Navbar() {
                     </div>
                 </Link>
 
-                {/* Nav links */}
                 <nav style={{ display: "flex", alignItems: "center", gap: 24 }}>
                     <Link href="/" style={{ fontSize: 13, fontWeight: 500, color: "#555", textDecoration: "none" }}>Inicio</Link>
                     <Link href="/experiencias" style={{ fontSize: 13, fontWeight: 500, color: "#555", textDecoration: "none" }}>Experiencias</Link>
@@ -58,11 +56,10 @@ export default function Navbar() {
                     <Link href="/ayuda" style={{ fontSize: 13, fontWeight: 500, color: "#555", textDecoration: "none" }}>Ayuda</Link>
                 </nav>
 
-                {/* Auth + CTA */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <HeaderAuth />
                     <Link
-                        href="/proveedor/registro"
+                        href="/registro-proveedor"
                         style={{
                             backgroundColor: COLORS.orange,
                             color: "#fff",
