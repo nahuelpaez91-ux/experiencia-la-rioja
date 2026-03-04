@@ -11,11 +11,25 @@ const ROLE_CONFIG = {
     user: { label: "Usuario", bg: "#4E6B3A", icon: "👤", badge: "USUARIO" },
 };
 
+// Roles que puede tener cada rol base
+const AVAILABLE_MODES: Record<string, { role: string; label: string; icon: string; href: string }[]> = {
+    provider: [
+        { role: "user", label: "Modo usuario", icon: "👤", href: "/" },
+        { role: "provider", label: "Modo proveedor", icon: "🗺️", href: "/proveedor" },
+    ],
+    admin: [
+        { role: "user", label: "Modo usuario", icon: "👤", href: "/" },
+        { role: "provider", label: "Modo proveedor", icon: "🗺️", href: "/proveedor" },
+        { role: "admin", label: "Modo admin", icon: "⚙️", href: "/admin" },
+    ],
+};
+
 export default function HeaderAuth() {
     const [user, setUser] = useState<any>(null);
     const [profile, setProfile] = useState<any>(null);
     const [ready, setReady] = useState(false);
     const [open, setOpen] = useState(false);
+    const [activeMode, setActiveMode] = useState<string | null>(null);
 
     useEffect(() => {
         const sb = createClient();
@@ -23,9 +37,15 @@ export default function HeaderAuth() {
         async function loadProfile(userId: string) {
             const { data } = await sb.from("profiles").select("full_name,role,avatar_url").eq("id", userId).single();
             setProfile(data);
+            // Restaurar modo guardado o usar el rol real
+            const saved = localStorage.getItem(`mode_${userId}`);
+            if (saved && AVAILABLE_MODES[data?.role]?.find((m: any) => m.role === saved)) {
+                setActiveMode(saved);
+            } else {
+                setActiveMode(data?.role ?? "user");
+            }
         }
 
-        // onAuthStateChange dispara INITIAL_SESSION al montar — cubre navegación entre páginas
         const { data: { subscription } } = sb.auth.onAuthStateChange((_event: any, session: any) => {
             if (session?.user) {
                 setUser(session.user);
@@ -33,6 +53,7 @@ export default function HeaderAuth() {
             } else {
                 setUser(null);
                 setProfile(null);
+                setActiveMode(null);
             }
             setReady(true);
         });
@@ -43,6 +64,14 @@ export default function HeaderAuth() {
     async function logout() {
         await createClient().auth.signOut();
         window.location.href = "/";
+    }
+
+    function switchMode(mode: { role: string; href: string }) {
+        if (!user) return;
+        localStorage.setItem(`mode_${user.id}`, mode.role);
+        setActiveMode(mode.role);
+        setOpen(false);
+        window.location.href = mode.href;
     }
 
     if (!ready) return <div style={{ width: 80, height: 36 }} />;
@@ -56,8 +85,10 @@ export default function HeaderAuth() {
 
     const name = profile?.full_name || user.email?.split("@")[0] || "Usuario";
     const initials = name.slice(0, 2).toUpperCase();
-    const role = (profile?.role ?? "user") as keyof typeof ROLE_CONFIG;
-    const rc = ROLE_CONFIG[role] ?? ROLE_CONFIG.user;
+    const realRole = (profile?.role ?? "user") as keyof typeof ROLE_CONFIG;
+    const currentMode = (activeMode ?? realRole) as keyof typeof ROLE_CONFIG;
+    const rc = ROLE_CONFIG[currentMode] ?? ROLE_CONFIG.user;
+    const availableModes = AVAILABLE_MODES[realRole] ?? [];
 
     return (
         <div style={{ position: "relative" }}>
@@ -80,8 +111,9 @@ export default function HeaderAuth() {
                         position: "absolute", top: "calc(100% + 10px)", right: 0,
                         background: "#fff", borderRadius: 18, padding: 8,
                         border: `1px solid ${COLORS.border}`,
-                        boxShadow: "0 12px 32px rgba(0,0,0,0.12)", minWidth: 230, zIndex: 100
+                        boxShadow: "0 12px 32px rgba(0,0,0,0.12)", minWidth: 240, zIndex: 100
                     }}>
+                        {/* Header del menú */}
                         <div style={{ padding: "10px 14px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                             <Avatar src={profile?.avatar_url} initials={initials} bg={rc.bg} size={44} />
                             <div style={{ minWidth: 0 }}>
@@ -96,20 +128,44 @@ export default function HeaderAuth() {
 
                         <hr style={{ border: "none", borderTop: `1px solid ${COLORS.border}`, margin: "0 4px 4px" }} />
 
+                        {/* Switch de modos — solo si tiene más de un modo disponible */}
+                        {availableModes.length > 1 && (
+                            <>
+                                <div style={{ padding: "4px 12px 6px", fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Cambiar modo</div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 4px 4px" }}>
+                                    {availableModes.map((m) => {
+                                        const mrc = ROLE_CONFIG[m.role as keyof typeof ROLE_CONFIG];
+                                        const isActive = currentMode === m.role;
+                                        return (
+                                            <button key={m.role} onClick={() => switchMode(m)}
+                                                style={{
+                                                    display: "flex", alignItems: "center", gap: 10,
+                                                    padding: "9px 12px", borderRadius: 10, border: isActive ? `2px solid ${mrc.bg}` : "2px solid transparent",
+                                                    backgroundColor: isActive ? `${mrc.bg}15` : "transparent",
+                                                    cursor: "pointer", width: "100%", textAlign: "left" as const
+                                                }}
+                                                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#f5f3f0"; }}
+                                                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+                                            >
+                                                <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: mrc.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+                                                    {m.icon}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: isActive ? mrc.bg : "#444" }}>{m.label}</div>
+                                                    {isActive && <div style={{ fontSize: 10, color: mrc.bg, fontWeight: 600 }}>Modo activo</div>}
+                                                </div>
+                                                {isActive && <span style={{ marginLeft: "auto", fontSize: 14, color: mrc.bg }}>✓</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <hr style={{ border: "none", borderTop: `1px solid ${COLORS.border}`, margin: "4px" }} />
+                            </>
+                        )}
+
+                        {/* Links normales */}
                         <Item href="/perfil" icon="👤" label="Mi perfil" close={() => setOpen(false)} />
                         <Item href="/mis-reservas" icon="🎫" label="Mis reservas" close={() => setOpen(false)} />
-
-                        {(role === "provider" || role === "admin") && <>
-                            <hr style={{ border: "none", borderTop: `1px solid ${COLORS.border}`, margin: "4px" }} />
-                            <div style={{ padding: "4px 12px 2px", fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Proveedor</div>
-                            <Item href="/proveedor" icon="🗺️" label="Panel proveedor" close={() => setOpen(false)} color={COLORS.orange} />
-                        </>}
-
-                        {role === "admin" && <>
-                            <hr style={{ border: "none", borderTop: `1px solid ${COLORS.border}`, margin: "4px" }} />
-                            <div style={{ padding: "4px 12px 2px", fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Admin</div>
-                            <Item href="/admin" icon="⚙️" label="Panel admin" close={() => setOpen(false)} color="#6B4FBB" />
-                        </>}
 
                         <hr style={{ border: "none", borderTop: `1px solid ${COLORS.border}`, margin: "4px 4px 0" }} />
                         <button onClick={logout} style={{
