@@ -10,7 +10,7 @@ const COLORS = {
     border: "#e7e2da",
 };
 
-const HIDDEN_ROUTES = ["/proveedor", "/admin", "/auth"];
+const HIDDEN_ROUTES = ["/admin", "/auth"];
 
 export default function Navbar() {
     const pathname = usePathname();
