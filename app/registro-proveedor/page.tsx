@@ -34,16 +34,22 @@ export default function RegistroProveedorPage() {
     const [authError, setAuthError] = useState<string | null>(null);
 
     const [form, setForm] = useState({
-        business_name: "", phone: "", whatsapp: "",
-        description: "", location: "", cuit: "",
+        business_name: "",
+        phone: "",
+        location: "",
+        address: "",
     });
 
+    const [profileUrl, setProfileUrl] = useState<string | null>(null);
     const [dniUrl, setDniUrl] = useState<string | null>(null);
     const [habilitacionUrl, setHabilitacionUrl] = useState<string | null>(null);
+    const [uploadingProfile, setUploadingProfile] = useState(false);
     const [uploadingDni, setUploadingDni] = useState(false);
     const [uploadingHab, setUploadingHab] = useState(false);
+    const profileRef = useRef<HTMLInputElement>(null);
     const dniRef = useRef<HTMLInputElement>(null);
     const habRef = useRef<HTMLInputElement>(null);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
 
@@ -77,21 +83,30 @@ export default function RegistroProveedorPage() {
         });
     }
 
-    async function uploadDoc(file: File, type: "dni" | "habilitacion") {
+    async function uploadFile(file: File, type: "profile" | "dni" | "habilitacion") {
         const { data: { user: u } } = await supabase.auth.getUser();
         if (!u) return;
-        if (type === "dni") setUploadingDni(true); else setUploadingHab(true);
+        if (type === "profile") setUploadingProfile(true);
+        else if (type === "dni") setUploadingDni(true);
+        else setUploadingHab(true);
+
         const path = `docs/${u.id}/${type}-${Date.now()}-${file.name}`;
         const { data, error } = await supabase.storage.from("experiences").upload(path, file, { upsert: true });
         if (error) { alert("Error subiendo archivo: " + error.message); return; }
         const url = supabase.storage.from("experiences").getPublicUrl(data.path).data.publicUrl;
-        if (type === "dni") { setDniUrl(url); setUploadingDni(false); }
+
+        if (type === "profile") { setProfileUrl(url); setUploadingProfile(false); }
+        else if (type === "dni") { setDniUrl(url); setUploadingDni(false); }
         else { setHabilitacionUrl(url); setUploadingHab(false); }
     }
 
     async function handleSubmit() {
-        if (!form.business_name || !form.phone || !form.cuit) {
-            setFormError("Completá los campos obligatorios: nombre del negocio, teléfono y CUIT.");
+        if (!form.business_name || !form.phone) {
+            setFormError("Completá los campos obligatorios: nombre del negocio y teléfono.");
+            return;
+        }
+        if (!acceptedTerms) {
+            setFormError("Debés aceptar los términos y condiciones para continuar.");
             return;
         }
         setFormLoading(true);
@@ -103,14 +118,16 @@ export default function RegistroProveedorPage() {
         const { error } = await supabase.from("profiles").update({
             business_name: form.business_name,
             phone: form.phone,
-            whatsapp: form.whatsapp || form.phone,
-            bio: form.description,
+            whatsapp: form.phone,
             location: form.location,
-            cuit: form.cuit,
+            address: form.address,
+            avatar_url: profileUrl,
             dni_url: dniUrl,
             habilitacion_url: habilitacionUrl,
             provider_status: "pending",
             role: "pending_provider",
+            terms_accepted: true,
+            terms_accepted_at: new Date().toISOString(),
         }).eq("id", userId);
 
         if (error) { setFormError("Error al guardar: " + error.message); setFormLoading(false); return; }
@@ -191,22 +208,46 @@ export default function RegistroProveedorPage() {
                 </div>
 
                 <div style={{ backgroundColor: "#fff", borderRadius: 24, padding: 32, border: `1px solid ${COLORS.border}` }}>
+
+                    {/* Foto de perfil */}
+                    <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 16px", color: "#222" }}>📸 Foto de perfil</h3>
+                    <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
+                        <div onClick={() => profileRef.current?.click()} style={{ width: 90, height: 90, borderRadius: "50%", border: `2px dashed ${profileUrl ? COLORS.green : COLORS.border}`, backgroundColor: profileUrl ? "#f0f7eb" : "#f9f7f4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", flexShrink: 0 }}>
+                            {profileUrl
+                                ? <img src={profileUrl} alt="perfil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                : <span style={{ fontSize: 32 }}>{uploadingProfile ? "⏳" : "👤"}</span>
+                            }
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#555" }}>{profileUrl ? "✅ Foto cargada" : "Subí una foto de perfil"}</div>
+                            <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>JPG o PNG · Se mostrará en tu perfil público</div>
+                            {profileUrl && <button onClick={() => setProfileUrl(null)} style={{ marginTop: 6, background: "none", border: "none", color: "#c0392b", fontSize: 12, cursor: "pointer" }}>× Quitar foto</button>}
+                        </div>
+                    </div>
+                    <input ref={profileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "profile"); }} />
+
+                    {/* Datos del negocio */}
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 20px", color: "#222" }}>📋 Datos del negocio</h3>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                         <div style={{ gridColumn: "1 / -1" }}>
                             <label style={lbl}>Nombre del negocio o actividad *</label>
                             <input style={inp} value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} placeholder="Ej: Cabalgatas El Cóndor" />
                         </div>
-                        <div><label style={lbl}>Teléfono *</label><input style={inp} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="3804001234" /></div>
-                        <div><label style={lbl}>WhatsApp</label><input style={inp} value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="3804001234" /></div>
-                        <div><label style={lbl}>CUIT *</label><input style={inp} value={form.cuit} onChange={(e) => setForm({ ...form, cuit: e.target.value })} placeholder="20-12345678-9" /></div>
-                        <div><label style={lbl}>Localidad</label><input style={inp} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Ej: Chilecito" /></div>
+                        <div>
+                            <label style={lbl}>Teléfono / WhatsApp *</label>
+                            <input style={inp} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="3804001234" />
+                        </div>
+                        <div>
+                            <label style={lbl}>Localidad</label>
+                            <input style={inp} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Ej: Chilecito" />
+                        </div>
                         <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={lbl}>Descripción de tu actividad</label>
-                            <textarea style={{ ...inp, height: 90, resize: "vertical" }} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Contá qué experiencias ofrecés..." />
+                            <label style={lbl}>Domicilio actual</label>
+                            <input style={inp} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Ej: Av. San Martín 456, Chilecito" />
                         </div>
                     </div>
 
+                    {/* Documentación */}
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "28px 0 8px", color: "#222" }}>📄 Documentación</h3>
                     <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Podés enviar los documentos ahora o después.</p>
 
@@ -216,20 +257,39 @@ export default function RegistroProveedorPage() {
                             <div style={{ fontSize: 13, fontWeight: 700, color: dniUrl ? COLORS.green : "#666" }}>{uploadingDni ? "Subiendo..." : dniUrl ? "DNI cargado" : "Subir DNI"}</div>
                             <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>JPG, PNG o PDF</div>
                         </div>
-                        <input ref={dniRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDoc(f, "dni"); }} />
+                        <input ref={dniRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "dni"); }} />
 
                         <div onClick={() => habRef.current?.click()} style={{ border: `2px dashed ${habilitacionUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: habilitacionUrl ? "#f0f7eb" : "#f9f7f4" }}>
                             <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingHab ? "⏳" : habilitacionUrl ? "✅" : "📋"}</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: habilitacionUrl ? COLORS.green : "#666" }}>{uploadingHab ? "Subiendo..." : habilitacionUrl ? "Habilitación cargada" : "Habilitación municipal"}</div>
                             <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>JPG, PNG o PDF</div>
                         </div>
-                        <input ref={habRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDoc(f, "habilitacion"); }} />
+                        <input ref={habRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "habilitacion"); }} />
+                    </div>
+
+                    {/* Términos y condiciones */}
+                    <div style={{ marginTop: 24, padding: 16, backgroundColor: COLORS.bg, borderRadius: 14, border: `1px solid ${COLORS.border}` }}>
+                        <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                            <input
+                                type="checkbox"
+                                checked={acceptedTerms}
+                                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                style={{ marginTop: 2, width: 16, height: 16, cursor: "pointer", accentColor: COLORS.green }}
+                            />
+                            <span style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>
+                                Leí y acepto los{" "}
+                                <a href="/terminos-y-condiciones" target="_blank" style={{ color: COLORS.green, fontWeight: 700 }}>
+                                    Términos y Condiciones
+                                </a>
+                                {" "}de Experiencia La Rioja para proveedores.
+                            </span>
+                        </label>
                     </div>
 
                     {formError && <div style={{ marginTop: 16, color: "#c0392b", fontSize: 13, backgroundColor: "#fdecea", borderRadius: 10, padding: "10px 14px" }}>{formError}</div>}
 
                     <button onClick={handleSubmit} disabled={formLoading}
-                        style={{ marginTop: 24, width: "100%", backgroundColor: COLORS.green, color: "#fff", border: "none", borderRadius: 14, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", opacity: formLoading ? 0.7 : 1 }}>
+                        style={{ marginTop: 20, width: "100%", backgroundColor: acceptedTerms ? COLORS.green : "#ccc", color: "#fff", border: "none", borderRadius: 14, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: acceptedTerms ? "pointer" : "not-allowed", transition: "background 0.2s" }}>
                         {formLoading ? "Enviando solicitud..." : "Enviar solicitud →"}
                     </button>
                     <p style={{ fontSize: 11, color: "#aaa", textAlign: "center", marginTop: 10 }}>Tu solicitud será revisada en 24-48hs. Te avisamos por email cuando esté aprobada.</p>
