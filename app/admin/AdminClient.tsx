@@ -17,13 +17,14 @@ const formatARS = (n: number) =>
 const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" });
 
-type Tab = "resumen" | "usuarios" | "experiencias" | "reservas" | "reseñas" | "finanzas";
+type Tab = "resumen" | "proveedores" | "usuarios" | "experiencias" | "reservas" | "reseñas" | "finanzas";
 
 type User = { id: string; email: string; full_name: string | null; role: string; created_at: string; suspended?: boolean; };
+type PendingProvider = { id: string; email: string; full_name: string | null; phone: string | null; departamento: string | null; localidad: string | null; address: string | null; avatar_url: string | null; dni_url: string | null; dni_dorso_url: string | null; habilitacion_url: string | null; provider_status: string | null; terms_accepted: boolean | null; created_at: string; };
 type Experience = { id: string; title: string; location: string | null; category: string | null; price_from: number | null; is_published: boolean; is_featured: boolean; created_at: string; provider_id: string | null; };
 type Booking = { id: string; experience_id: string; user_id: string | null; status: string; people: number | null; created_at: string; slot_id: string | null; total_price?: number | null; user_name?: string | null; user_email?: string | null; };
 type Review = { id: string; experience_id: string; user_name: string; rating: number; comment: string | null; created_at: string; };
-type Stats = { users: number; experiences: number; bookings: number; reviews: number; publishedExperiences: number; pendingExperiences: number; providers: number; admins: number; };
+type Stats = { users: number; experiences: number; bookings: number; reviews: number; publishedExperiences: number; pendingExperiences: number; providers: number; admins: number; pendingProviders?: number; };
 
 const roleColors: Record<string, string> = { admin: "#7C3AED", provider: "#4E6B3A", user: "#64748B" };
 const statusColors: Record<string, { bg: string; color: string; label: string }> = {
@@ -33,12 +34,13 @@ const statusColors: Record<string, { bg: string; color: string; label: string }>
     completed: { bg: "#E0F2FE", color: "#0891B2", label: "Completada" },
 };
 
-export default function AdminClient({ stats, users: initialUsers, experiences: initialExperiences, bookings: initialBookings, reviews: initialReviews }: { stats: Stats; users: User[]; experiences: Experience[]; bookings: Booking[]; reviews: Review[]; }) {
+export default function AdminClient({ stats, users: initialUsers, experiences: initialExperiences, bookings: initialBookings, reviews: initialReviews, pendingProviders: initialPending = [] }: { stats: Stats; users: User[]; experiences: Experience[]; bookings: Booking[]; reviews: Review[]; pendingProviders?: PendingProvider[]; }) {
     const [tab, setTab] = useState<Tab>("resumen");
     const [users, setUsers] = useState(initialUsers);
     const [experiences, setExperiences] = useState(initialExperiences);
     const [bookings, setBookings] = useState(initialBookings);
     const [reviews, setReviews] = useState(initialReviews);
+    const [pendingProviders, setPendingProviders] = useState<PendingProvider[]>(initialPending);
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
     const [searchUser, setSearchUser] = useState("");
@@ -47,6 +49,8 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
     const [filterStatus, setFilterStatus] = useState("all");
     const [filterCategory, setFilterCategory] = useState("all");
     const [confirmModal, setConfirmModal] = useState<{ msg: string; action: () => void } | null>(null);
+    const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
+    const [rejectReason, setRejectReason] = useState<{ id: string; reason: string } | null>(null);
 
     const showToast = (msg: string, type: "ok" | "err" = "ok") => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
     const confirm = (msg: string, action: () => void) => setConfirmModal({ msg, action });
@@ -83,6 +87,28 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
         setLoadingId(null); setConfirmModal(null);
     });
 
+    const handleApproveProvider = async (providerId: string) => {
+        setLoadingId(providerId);
+        const res = await fetch("/api/admin/approve-provider", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: providerId, action: "approve" }) });
+        if (res.ok) {
+            setPendingProviders((prev) => prev.filter((p) => p.id !== providerId));
+            setUsers((prev) => prev.map((u) => u.id === providerId ? { ...u, role: "provider" } : u));
+            showToast("Proveedor aprobado ✓");
+        } else showToast("Error al aprobar", "err");
+        setLoadingId(null);
+    };
+
+    const handleRejectProvider = async (providerId: string, reason: string) => {
+        setLoadingId(providerId);
+        const res = await fetch("/api/admin/approve-provider", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: providerId, action: "reject", reason }) });
+        if (res.ok) {
+            setPendingProviders((prev) => prev.filter((p) => p.id !== providerId));
+            showToast("Solicitud rechazada ✓");
+        } else showToast("Error al rechazar", "err");
+        setLoadingId(null);
+        setRejectReason(null);
+    };
+
     const filteredUsers = users.filter((u) => {
         const q = searchUser.toLowerCase();
         return (q === "" || u.email.toLowerCase().includes(q) || (u.full_name ?? "").toLowerCase().includes(q)) && (filterRole === "all" || u.role === filterRole);
@@ -102,8 +128,9 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
     const avgRating = reviews.length > 0 ? (reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(1) : "—";
     const categories = [...new Set(experiences.map((e) => e.category).filter(Boolean))];
 
-    const tabs: { id: Tab; label: string; icon: string }[] = [
+    const tabs: { id: Tab; label: string; icon: string; badge?: number }[] = [
         { id: "resumen", label: "Resumen", icon: "📊" },
+        { id: "proveedores", label: "Proveedores", icon: "🏪", badge: pendingProviders.length },
         { id: "usuarios", label: "Usuarios", icon: "👥" },
         { id: "experiencias", label: "Experiencias", icon: "🗺️" },
         { id: "reservas", label: "Reservas", icon: "📅" },
@@ -136,6 +163,32 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                 </div>
             )}
 
+            {/* Modal ver documento */}
+            {selectedDoc && (
+                <div onClick={() => setSelectedDoc(null)} style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800, width: "100%", position: "relative" }}>
+                        <button onClick={() => setSelectedDoc(null)} style={{ position: "absolute", top: -40, right: 0, background: "none", border: "none", color: "#fff", fontSize: 24, cursor: "pointer" }}>✕</button>
+                        <img src={selectedDoc} alt="Documento" style={{ width: "100%", borderRadius: 16, maxHeight: "80vh", objectFit: "contain" }} />
+                    </div>
+                </div>
+            )}
+
+            {/* Modal rechazar */}
+            {rejectReason && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ backgroundColor: "#fff", borderRadius: 20, padding: 32, maxWidth: 440, width: "90%" }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px" }}>Motivo del rechazo</h3>
+                        <textarea value={rejectReason.reason} onChange={(e) => setRejectReason({ ...rejectReason, reason: e.target.value })} placeholder="Explicá al proveedor por qué fue rechazada su solicitud..." style={{ width: "100%", boxSizing: "border-box", borderRadius: 12, border: `1px solid ${COLORS.border}`, padding: 14, fontSize: 14, height: 100, resize: "vertical", outline: "none" }} />
+                        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                            <button onClick={() => setRejectReason(null)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: `1px solid ${COLORS.border}`, background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
+                            <button onClick={() => handleRejectProvider(rejectReason.id, rejectReason.reason)} disabled={!rejectReason.reason.trim() || loadingId === rejectReason.id} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: COLORS.red, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: !rejectReason.reason.trim() ? 0.5 : 1 }}>
+                                {loadingId === rejectReason.id ? "..." : "Rechazar solicitud"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <header style={{ position: "sticky", top: 0, zIndex: 50, backgroundColor: "rgba(243,238,230,0.95)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${COLORS.border}`, padding: "16px 24px", display: "flex", alignItems: "center", gap: 12 }}>
                 <a href="/" style={{ fontSize: 13, color: "#888", textDecoration: "none" }}>← Inicio</a>
@@ -149,16 +202,109 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                 {/* Tabs */}
                 <div style={{ display: "flex", gap: 4, backgroundColor: "#fff", borderRadius: 16, padding: 5, border: `1px solid ${COLORS.border}`, width: "fit-content", marginBottom: 28, flexWrap: "wrap" }}>
                     {tabs.map((t) => (
-                        <button key={t.id} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", backgroundColor: tab === t.id ? COLORS.green : "transparent", color: tab === t.id ? "#fff" : "#666" }}>
+                        <button key={t.id} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", backgroundColor: tab === t.id ? COLORS.green : "transparent", color: tab === t.id ? "#fff" : "#666", position: "relative" }}>
                             <span>{t.icon}</span>{t.label}
+                            {t.badge != null && t.badge > 0 && (
+                                <span style={{ backgroundColor: COLORS.red, color: "#fff", borderRadius: 999, fontSize: 10, fontWeight: 800, padding: "1px 6px", marginLeft: 2 }}>{t.badge}</span>
+                            )}
                         </button>
                     ))}
                 </div>
+
+                {/* ── PROVEEDORES ── */}
+                {tab === "proveedores" && (
+                    <div>
+                        <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, marginTop: 0 }}>Solicitudes de proveedores</h2>
+                        <p style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Revisá la documentación y aprobá o rechazá cada solicitud.</p>
+
+                        {pendingProviders.length === 0 ? (
+                            <div style={{ backgroundColor: "#fff", borderRadius: 20, padding: 48, textAlign: "center", border: `1px solid ${COLORS.border}` }}>
+                                <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                                <p style={{ color: "#bbb", fontSize: 15 }}>No hay solicitudes pendientes.</p>
+                            </div>
+                        ) : pendingProviders.map((p) => (
+                            <div key={p.id} style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 28, marginBottom: 16 }}>
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+
+                                    {/* Foto */}
+                                    <div style={{ flexShrink: 0 }}>
+                                        {p.avatar_url
+                                            ? <img src={p.avatar_url} alt="foto" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: `2px solid ${COLORS.border}` }} />
+                                            : <div style={{ width: 72, height: 72, borderRadius: "50%", backgroundColor: COLORS.bg, border: `2px solid ${COLORS.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>👤</div>
+                                        }
+                                    </div>
+
+                                    {/* Datos */}
+                                    <div style={{ flex: 1, minWidth: 200 }}>
+                                        <div style={{ fontSize: 18, fontWeight: 800, color: "#222" }}>{p.full_name || "Sin nombre"}</div>
+                                        <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>{p.email}</div>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px", marginTop: 12 }}>
+                                            {[
+                                                { label: "📱 Teléfono", value: p.phone },
+                                                { label: "📍 Departamento", value: p.departamento },
+                                                { label: "🏘️ Localidad", value: p.localidad },
+                                                { label: "🏠 Domicilio", value: p.address },
+                                                { label: "📅 Solicitó", value: p.created_at ? formatDate(p.created_at) : "—" },
+                                                { label: "✅ T&C", value: p.terms_accepted ? "Aceptados" : "No aceptados" },
+                                            ].map((item) => item.value ? (
+                                                <div key={item.label}>
+                                                    <span style={{ fontSize: 11, color: "#aaa", display: "block" }}>{item.label}</span>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: "#333" }}>{item.value}</span>
+                                                </div>
+                                            ) : null)}
+                                        </div>
+                                    </div>
+
+                                    {/* Acciones */}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+                                        <button onClick={() => handleApproveProvider(p.id)} disabled={loadingId === p.id} style={{ backgroundColor: COLORS.green, color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: loadingId === p.id ? 0.6 : 1 }}>
+                                            {loadingId === p.id ? "..." : "✓ Aprobar"}
+                                        </button>
+                                        <button onClick={() => setRejectReason({ id: p.id, reason: "" })} disabled={loadingId === p.id} style={{ backgroundColor: "#FEE2E2", color: COLORS.red, border: "none", borderRadius: 12, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                                            ✕ Rechazar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Documentos */}
+                                <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${COLORS.border}` }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: "#555", marginBottom: 12 }}>📄 Documentación</div>
+                                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                                        {[
+                                            { label: "DNI frente", url: p.dni_url },
+                                            { label: "DNI dorso", url: p.dni_dorso_url },
+                                            { label: "Habilitación", url: p.habilitacion_url },
+                                        ].map((doc) => (
+                                            <div key={doc.label} onClick={() => doc.url && setSelectedDoc(doc.url)}
+                                                style={{ border: `2px dashed ${doc.url ? COLORS.green : COLORS.border}`, borderRadius: 12, padding: "12px 20px", textAlign: "center", cursor: doc.url ? "pointer" : "default", backgroundColor: doc.url ? "#f0f7eb" : "#f9f7f4", minWidth: 120 }}>
+                                                <div style={{ fontSize: 22, marginBottom: 4 }}>{doc.url ? "✅" : "❌"}</div>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: doc.url ? COLORS.green : "#aaa" }}>{doc.label}</div>
+                                                {doc.url && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>Click para ver</div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* ── RESUMEN ── */}
                 {tab === "resumen" && (
                     <div>
                         <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 20, marginTop: 0 }}>Resumen general</h2>
+
+                        {/* Alerta proveedores pendientes */}
+                        {pendingProviders.length > 0 && (
+                            <div onClick={() => setTab("proveedores")} style={{ backgroundColor: "#FEF3C7", border: `1px solid #FCD34D`, borderRadius: 16, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                    <span style={{ fontSize: 20 }}>⚠️</span>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: "#92400E" }}>Tenés {pendingProviders.length} solicitud{pendingProviders.length > 1 ? "es" : ""} de proveedor pendiente{pendingProviders.length > 1 ? "s" : ""}</span>
+                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.orange }}>Revisar →</span>
+                            </div>
+                        )}
+
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 28 }}>
                             {[
                                 { label: "Usuarios", value: stats.users, icon: "👥", sub: `${stats.providers} proveedores · ${stats.admins} admins`, color: "#64748B" },
@@ -176,7 +322,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                             ))}
                         </div>
 
-                        {/* Pendientes */}
                         <div style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 24, marginBottom: 20 }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>⚠️ Experiencias pendientes de publicar</h3>
@@ -200,7 +345,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                             ))}
                         </div>
 
-                        {/* Últimas reservas */}
                         <div style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 24, marginBottom: 20 }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>📅 Últimas reservas</h3>
@@ -223,7 +367,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                             })}
                         </div>
 
-                        {/* Últimas reseñas */}
                         <div style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 24 }}>
                             <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px" }}>⭐ Últimas reseñas</h3>
                             {reviews.slice(0, 5).map((r) => (
@@ -289,14 +432,11 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                                 </select>
                                             </td>
                                             <td style={{ padding: "14px 16px" }}>
-                                                <button
-                                                    onClick={() => confirm(`¿${u.suspended ? "Reactivar" : "Suspender"} a ${u.full_name || u.email}?`, () => {
-                                                        setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, suspended: !x.suspended } : x));
-                                                        showToast(u.suspended ? "Usuario reactivado ✓" : "Usuario suspendido ✓");
-                                                        setConfirmModal(null);
-                                                    })}
-                                                    style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 8, border: "none", cursor: "pointer", backgroundColor: u.suspended ? "#DCFCE7" : "#FEF3C7", color: u.suspended ? COLORS.green : COLORS.orange }}
-                                                >
+                                                <button onClick={() => confirm(`¿${u.suspended ? "Reactivar" : "Suspender"} a ${u.full_name || u.email}?`, () => {
+                                                    setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, suspended: !x.suspended } : x));
+                                                    showToast(u.suspended ? "Usuario reactivado ✓" : "Usuario suspendido ✓");
+                                                    setConfirmModal(null);
+                                                })} style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 8, border: "none", cursor: "pointer", backgroundColor: u.suspended ? "#DCFCE7" : "#FEF3C7", color: u.suspended ? COLORS.green : COLORS.orange }}>
                                                     {u.suspended ? "Reactivar" : "Suspender"}
                                                 </button>
                                             </td>

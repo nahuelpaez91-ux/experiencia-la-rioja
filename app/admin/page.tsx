@@ -35,7 +35,6 @@ export default function AdminPage() {
             return;
         }
 
-        // Cargar datos via API route
         const res = await fetch("/api/admin/data");
         if (!res.ok) {
             setDenied(true);
@@ -72,6 +71,7 @@ export default function AdminPage() {
             experiences={data.experiences}
             bookings={data.bookings}
             reviews={data.reviews}
+            pendingProviders={data.pendingProviders ?? []}
         />
     );
 }
