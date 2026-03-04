@@ -34,7 +34,7 @@ export default function RegistroProveedorPage() {
     const [authError, setAuthError] = useState<string | null>(null);
 
     const [form, setForm] = useState({
-        business_name: "",
+        full_name: "",
         phone: "",
         location: "",
         address: "",
@@ -67,9 +67,11 @@ export default function RegistroProveedorPage() {
         } else {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) { setAuthError("Email o contraseña incorrectos."); setAuthLoading(false); return; }
-            const { data: prof } = await supabase.from("profiles").select("role, provider_status").eq("id", data.user.id).single();
+            const { data: prof } = await supabase.from("profiles").select("role, provider_status, full_name").eq("id", data.user.id).single();
             if (prof?.role === "provider") { window.location.href = "/proveedor"; return; }
             if (prof?.provider_status === "pending") { setStep("success"); setAuthLoading(false); return; }
+            // Pre-llenar nombre si ya lo tiene
+            if (prof?.full_name) setForm(f => ({ ...f, full_name: prof.full_name }));
             setUser(data.user);
             setStep("form");
         }
@@ -101,8 +103,8 @@ export default function RegistroProveedorPage() {
     }
 
     async function handleSubmit() {
-        if (!form.business_name || !form.phone) {
-            setFormError("Completá los campos obligatorios: nombre del negocio y teléfono.");
+        if (!form.full_name || !form.phone) {
+            setFormError("Completá los campos obligatorios: nombre completo y teléfono.");
             return;
         }
         if (!acceptedTerms) {
@@ -116,7 +118,7 @@ export default function RegistroProveedorPage() {
         if (!userId) { setFormError("Error de sesión."); setFormLoading(false); return; }
 
         const { error } = await supabase.from("profiles").update({
-            business_name: form.business_name,
+            full_name: form.full_name,
             phone: form.phone,
             whatsapp: form.phone,
             location: form.location,
@@ -226,12 +228,12 @@ export default function RegistroProveedorPage() {
                     </div>
                     <input ref={profileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "profile"); }} />
 
-                    {/* Datos del negocio */}
-                    <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 20px", color: "#222" }}>📋 Datos del negocio</h3>
+                    {/* Datos personales */}
+                    <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 20px", color: "#222" }}>📋 Datos personales</h3>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                         <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={lbl}>Nombre del negocio o actividad *</label>
-                            <input style={inp} value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} placeholder="Ej: Cabalgatas El Cóndor" />
+                            <label style={lbl}>Nombre completo *</label>
+                            <input style={inp} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Ej: Juan Pérez" />
                         </div>
                         <div>
                             <label style={lbl}>Teléfono / WhatsApp *</label>
