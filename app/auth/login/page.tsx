@@ -11,11 +11,11 @@ const COLORS = {
 };
 
 const DEPARTAMENTOS = [
-    "Capital", "Arauco", "Castro Barros", "Chamical", "Chilecito",
+    "Arauco", "Capital", "Castro Barros", "Chamical", "Chilecito",
     "Coronel Felipe Varela", "Famatina", "General Ángel Vicente Peñaloza",
     "General Belgrano", "General Juan Facundo Quiroga", "General Lamadrid",
-    "General San Martín", "Independencia", "Jachal", "Rivadavia",
-    "San Blas de los Sauces", "Shincal", "Vinchina"
+    "General Ocampo", "General San Martín", "Independencia",
+    "Rosario Vera Peñaloza", "San Blas de los Sauces", "Sanagasta", "Vinchina"
 ];
 
 const inp: React.CSSProperties = {
@@ -56,7 +56,6 @@ export default function AuthPage() {
             if (error) {
                 setError(error.message);
             } else if (data.user) {
-                // Guardar departamento y localidad en profiles
                 await supabase.from("profiles").update({
                     departamento,
                     localidad,

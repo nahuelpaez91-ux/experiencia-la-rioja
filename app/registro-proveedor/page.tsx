@@ -11,11 +11,11 @@ const COLORS = {
 };
 
 const DEPARTAMENTOS = [
-    "Capital", "Arauco", "Castro Barros", "Chamical", "Chilecito",
+    "Arauco", "Capital", "Castro Barros", "Chamical", "Chilecito",
     "Coronel Felipe Varela", "Famatina", "General Ángel Vicente Peñaloza",
     "General Belgrano", "General Juan Facundo Quiroga", "General Lamadrid",
-    "General San Martín", "Independencia", "Jachal", "Rivadavia",
-    "San Blas de los Sauces", "Shincal", "Vinchina"
+    "General Ocampo", "General San Martín", "Independencia",
+    "Rosario Vera Peñaloza", "San Blas de los Sauces", "Sanagasta", "Vinchina"
 ];
 
 const inp: React.CSSProperties = {
@@ -230,7 +230,6 @@ export default function RegistroProveedorPage() {
 
                 <div style={{ backgroundColor: "#fff", borderRadius: 24, padding: 32, border: `1px solid ${COLORS.border}` }}>
 
-                    {/* Foto de perfil */}
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 16px", color: "#222" }}>📸 Foto de perfil</h3>
                     <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
                         <div onClick={() => profileRef.current?.click()} style={{ width: 90, height: 90, borderRadius: "50%", border: `2px dashed ${profileUrl ? COLORS.green : COLORS.border}`, backgroundColor: profileUrl ? "#f0f7eb" : "#f9f7f4", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", flexShrink: 0 }}>
@@ -244,7 +243,6 @@ export default function RegistroProveedorPage() {
                     </div>
                     <input ref={profileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "profile"); }} />
 
-                    {/* Datos personales */}
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 20px", color: "#222" }}>📋 Datos personales</h3>
                     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                         <div>
@@ -279,12 +277,10 @@ export default function RegistroProveedorPage() {
                         </div>
                     </div>
 
-                    {/* Documentación */}
                     <h3 style={{ fontSize: 16, fontWeight: 800, margin: "28px 0 8px", color: "#222" }}>📄 Documentación</h3>
                     <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>Podés enviar los documentos ahora o después. Las fotos deben ser claras y legibles.</p>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                        {/* DNI Frente */}
                         <div onClick={() => dniFrenteRef.current?.click()} style={{ border: `2px dashed ${dniFrenteUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: dniFrenteUrl ? "#f0f7eb" : "#f9f7f4" }}>
                             <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingDniFrente ? "⏳" : dniFrenteUrl ? "✅" : "🪪"}</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: dniFrenteUrl ? COLORS.green : "#666" }}>{uploadingDniFrente ? "Subiendo..." : dniFrenteUrl ? "DNI frente cargado" : "DNI — frente"}</div>
@@ -292,7 +288,6 @@ export default function RegistroProveedorPage() {
                         </div>
                         <input ref={dniFrenteRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "dni_frente"); }} />
 
-                        {/* DNI Dorso */}
                         <div onClick={() => dniDorsoRef.current?.click()} style={{ border: `2px dashed ${dniDorsoUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: dniDorsoUrl ? "#f0f7eb" : "#f9f7f4" }}>
                             <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingDniDorso ? "⏳" : dniDorsoUrl ? "✅" : "🪪"}</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: dniDorsoUrl ? COLORS.green : "#666" }}>{uploadingDniDorso ? "Subiendo..." : dniDorsoUrl ? "DNI dorso cargado" : "DNI — dorso"}</div>
@@ -300,7 +295,6 @@ export default function RegistroProveedorPage() {
                         </div>
                         <input ref={dniDorsoRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "dni_dorso"); }} />
 
-                        {/* Habilitación */}
                         <div onClick={() => habRef.current?.click()} style={{ border: `2px dashed ${habilitacionUrl ? COLORS.green : COLORS.border}`, borderRadius: 14, padding: 20, textAlign: "center", cursor: "pointer", backgroundColor: habilitacionUrl ? "#f0f7eb" : "#f9f7f4", gridColumn: "1 / -1" }}>
                             <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingHab ? "⏳" : habilitacionUrl ? "✅" : "📋"}</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: habilitacionUrl ? COLORS.green : "#666" }}>{uploadingHab ? "Subiendo..." : habilitacionUrl ? "Habilitación cargada" : "Habilitación municipal"}</div>
@@ -309,7 +303,6 @@ export default function RegistroProveedorPage() {
                         <input ref={habRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, "habilitacion"); }} />
                     </div>
 
-                    {/* Términos */}
                     <div style={{ marginTop: 24, padding: 16, backgroundColor: COLORS.bg, borderRadius: 14, border: `1px solid ${COLORS.border}` }}>
                         <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
                             <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, cursor: "pointer", accentColor: COLORS.green }} />
