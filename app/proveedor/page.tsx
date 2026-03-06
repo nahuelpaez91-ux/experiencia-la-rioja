@@ -28,6 +28,16 @@ const formatARS = (n: number) =>
 const formatDate = (d: string) =>
     new Date(d + "T12:00:00").toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" });
 
+const MP_FEE_PCT = 0.0599;
+const PLATFORM_FEE_PCT = 0.15;
+
+function getBreakdown(total: number) {
+    const mp = Math.round(total * MP_FEE_PCT);
+    const platform = Math.round(total * PLATFORM_FEE_PCT);
+    const provider = total - mp - platform;
+    return { mp, platform, provider };
+}
+
 type Experience = {
     id: string; title: string; description: string; location: string;
     price_from: number; duration_minutes: number; category: string;
@@ -431,7 +441,6 @@ export default function ProveedorPanel() {
 
             <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 24px" }}>
 
-                {/* ── MERCADO PAGO ── */}
                 <MPConnectSection />
 
                 {/* Stats */}
@@ -499,8 +508,6 @@ export default function ProveedorPanel() {
                                         <label style={lbl}>Duración (minutos)</label>
                                         <input style={inp} type="number" value={expForm.duration_minutes} onChange={(e) => setExpForm({ ...expForm, duration_minutes: e.target.value })} placeholder="120" />
                                     </div>
-
-                                    {/* Cover */}
                                     <div style={{ gridColumn: "1 / -1" }}>
                                         <label style={lbl}>📸 Foto de portada</label>
                                         <div style={{ marginTop: 8, display: "flex", gap: 14, alignItems: "flex-start" }}>
@@ -514,8 +521,6 @@ export default function ProveedorPanel() {
                                         </div>
                                         <input ref={coverRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleCoverUpload} />
                                     </div>
-
-                                    {/* Galería */}
                                     <div style={{ gridColumn: "1 / -1" }}>
                                         <label style={lbl}>🖼️ Galería de fotos (hasta 8)</label>
                                         <div style={{ marginTop: 8, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -533,28 +538,17 @@ export default function ProveedorPanel() {
                                         </div>
                                         <input ref={galleryRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleGalleryUpload} />
                                     </div>
-
-                                    {/* Video */}
                                     <div style={{ gridColumn: "1 / -1" }}>
                                         <label style={lbl}>🎥 Video descriptivo (URL de YouTube o Vimeo)</label>
                                         <input style={inp} value={expForm.video_url} onChange={(e) => setExpForm({ ...expForm, video_url: e.target.value })} placeholder="https://youtube.com/watch?v=..." />
                                         <p style={{ fontSize: 11, color: "#aaa", margin: "4px 0 0" }}>Se mostrará embebido en el detalle de la experiencia.</p>
                                     </div>
-
-                                    {/* Punto de encuentro */}
                                     <div style={{ gridColumn: "1 / -1", backgroundColor: "#f9f7f4", borderRadius: 16, padding: 18, border: `1px solid ${COLORS.border}` }}>
                                         <label style={{ ...lbl, fontSize: 13, color: "#555", marginBottom: 6 }}>📍 Punto de encuentro</label>
                                         <p style={{ fontSize: 12, color: "#aaa", margin: "0 0 12px" }}>Escribí la dirección y hacé clic en "Buscar en mapa". Luego podés arrastrar el pin para ajustar el punto exacto.</p>
                                         <div style={{ display: "flex", gap: 8 }}>
-                                            <input
-                                                style={{ ...inp, marginTop: 0, flex: 1 }}
-                                                value={expForm.meeting_point_address}
-                                                onChange={(e) => setExpForm({ ...expForm, meeting_point_address: e.target.value })}
-                                                placeholder="Ej: Ruta Provincial 7, Anillaco, La Rioja"
-                                                onKeyDown={(e) => e.key === "Enter" && geocodeAddress()}
-                                            />
-                                            <button onClick={geocodeAddress} disabled={geocoding || !expForm.meeting_point_address.trim()}
-                                                style={{ flexShrink: 0, backgroundColor: COLORS.green, color: "#fff", border: "none", borderRadius: 12, padding: "0 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: (!expForm.meeting_point_address.trim() || geocoding) ? 0.5 : 1 }}>
+                                            <input style={{ ...inp, marginTop: 0, flex: 1 }} value={expForm.meeting_point_address} onChange={(e) => setExpForm({ ...expForm, meeting_point_address: e.target.value })} placeholder="Ej: Ruta Provincial 7, Anillaco, La Rioja" onKeyDown={(e) => e.key === "Enter" && geocodeAddress()} />
+                                            <button onClick={geocodeAddress} disabled={geocoding || !expForm.meeting_point_address.trim()} style={{ flexShrink: 0, backgroundColor: COLORS.green, color: "#fff", border: "none", borderRadius: 12, padding: "0 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: (!expForm.meeting_point_address.trim() || geocoding) ? 0.5 : 1 }}>
                                                 {geocoding ? "Buscando..." : "Buscar en mapa"}
                                             </button>
                                         </div>
@@ -571,10 +565,8 @@ export default function ProveedorPanel() {
                                         )}
                                     </div>
                                 </div>
-
                                 <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                                    <button onClick={handleSaveExp} disabled={expLoading || !expForm.title || !expForm.location || !expForm.price_from}
-                                        style={{ backgroundColor: (!expForm.title || !expForm.location || !expForm.price_from) ? "#ccc" : COLORS.green, color: "#fff", border: "none", borderRadius: 12, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                                    <button onClick={handleSaveExp} disabled={expLoading || !expForm.title || !expForm.location || !expForm.price_from} style={{ backgroundColor: (!expForm.title || !expForm.location || !expForm.price_from) ? "#ccc" : COLORS.green, color: "#fff", border: "none", borderRadius: 12, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                                         {expLoading ? "Guardando..." : editingExp ? "Guardar cambios" : "Crear experiencia"}
                                     </button>
                                     <button onClick={resetExpForm} style={{ backgroundColor: "#eee", color: "#555", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
@@ -634,9 +626,7 @@ export default function ProveedorPanel() {
                                 </button>
                             )}
                         </div>
-
                         {experiences.length === 0 && <div style={{ backgroundColor: "#fff3e0", borderRadius: 14, padding: 16, fontSize: 14, color: "#e65100", marginBottom: 16 }}>Primero creá al menos una experiencia para agregar turnos.</div>}
-
                         {showSlotForm && (
                             <div style={{ backgroundColor: "#fff", borderRadius: 20, padding: 24, border: `1px solid ${COLORS.border}`, marginBottom: 20 }}>
                                 <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 800 }}>Nuevo turno</h3>
@@ -666,18 +656,15 @@ export default function ProveedorPanel() {
                                 </button>
                             </div>
                         )}
-
                         {experiences.length > 1 && (
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                                 {[{ id: "all", title: "Todas" }, ...experiences].map((exp) => (
-                                    <button key={exp.id} onClick={() => setSlotFilter(exp.id)}
-                                        style={{ padding: "6px 14px", borderRadius: 10, border: `1px solid ${COLORS.border}`, backgroundColor: slotFilter === exp.id ? COLORS.green : "#fff", color: slotFilter === exp.id ? "#fff" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                                    <button key={exp.id} onClick={() => setSlotFilter(exp.id)} style={{ padding: "6px 14px", borderRadius: 10, border: `1px solid ${COLORS.border}`, backgroundColor: slotFilter === exp.id ? COLORS.green : "#fff", color: slotFilter === exp.id ? "#fff" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                                         {exp.title}
                                     </button>
                                 ))}
                             </div>
                         )}
-
                         {filteredSlots.length === 0 ? (
                             <div style={{ backgroundColor: "#fff", borderRadius: 16, padding: 48, textAlign: "center", border: `1px solid ${COLORS.border}` }}>
                                 <div style={{ fontSize: 40, marginBottom: 12 }}>📅</div>
@@ -733,24 +720,33 @@ export default function ProveedorPanel() {
                             </div>
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                {bookings.map((b) => (
-                                    <div key={b.id} style={{ backgroundColor: "#fff", borderRadius: 16, padding: "18px 22px", border: `1px solid ${COLORS.border}` }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>{b.experience?.title ?? "—"}</div>
-                                                <div style={{ fontSize: 13, color: "#555" }}>👤 {b.user_name} · ✉️ {b.user_email}</div>
-                                                <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>📅 {b.slot?.date ?? "—"} · ⏰ {b.slot?.time?.slice(0, 5) ?? "—"} · 👥 {b.people} {b.people === 1 ? "persona" : "personas"}</div>
+                                {bookings.map((b) => {
+                                    const bd = getBreakdown(b.total_price);
+                                    return (
+                                        <div key={b.id} style={{ backgroundColor: "#fff", borderRadius: 16, padding: "18px 22px", border: `1px solid ${COLORS.border}` }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>{b.experience?.title ?? "—"}</div>
+                                                    <div style={{ fontSize: 13, color: "#555" }}>👤 {b.user_name} · ✉️ {b.user_email}</div>
+                                                    <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>📅 {b.slot?.date ?? "—"} · ⏰ {b.slot?.time?.slice(0, 5) ?? "—"} · 👥 {b.people} {b.people === 1 ? "persona" : "personas"}</div>
+                                                </div>
+                                                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                                    <div style={{ fontWeight: 800, fontSize: 18, color: COLORS.green }}>{formatARS(b.total_price)}</div>
+                                                    <div style={{ fontSize: 11, color: "#999" }}>Total cobrado</div>
+                                                    <div style={{ marginTop: 8, backgroundColor: "#f9f7f4", borderRadius: 10, padding: "8px 12px", textAlign: "left" }}>
+                                                        <div style={{ fontSize: 12, color: "#e65100", marginBottom: 2 }}>💳 Comisión MP: -{formatARS(bd.mp)}</div>
+                                                        <div style={{ fontSize: 12, color: "#7C3AED", marginBottom: 4 }}>🌐 Comisión plataforma: -{formatARS(bd.platform)}</div>
+                                                        <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.green, borderTop: `1px solid ${COLORS.border}`, paddingTop: 4 }}>💵 Tu neto: {formatARS(bd.provider)}</div>
+                                                    </div>
+                                                    <div style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 999, marginTop: 6, backgroundColor: "#e8f5e9", color: "#2e7d32", display: "inline-block" }}>✓ {b.status}</div>
+                                                </div>
                                             </div>
-                                            <div style={{ textAlign: "right", flexShrink: 0 }}>
-                                                <div style={{ fontWeight: 800, fontSize: 18, color: COLORS.green }}>{formatARS(b.total_price)}</div>
-                                                <div style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 999, marginTop: 4, backgroundColor: "#e8f5e9", color: "#2e7d32", display: "inline-block" }}>✓ {b.status}</div>
+                                            <div style={{ fontSize: 11, color: "#ccc", marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 8 }}>
+                                                Código: <strong style={{ color: "#888" }}>{b.id.slice(0, 8).toUpperCase()}</strong> · {new Date(b.created_at).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })}
                                             </div>
                                         </div>
-                                        <div style={{ fontSize: 11, color: "#ccc", marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 8 }}>
-                                            Código: <strong style={{ color: "#888" }}>{b.id.slice(0, 8).toUpperCase()}</strong> · {new Date(b.created_at).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

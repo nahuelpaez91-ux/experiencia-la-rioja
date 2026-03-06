@@ -17,6 +17,16 @@ const formatARS = (n: number) =>
 const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" });
 
+const MP_FEE_PCT = 0.0599;
+const PLATFORM_FEE_PCT = 0.15;
+
+function getBreakdown(total: number) {
+    const mp = Math.round(total * MP_FEE_PCT);
+    const platform = Math.round(total * PLATFORM_FEE_PCT);
+    const provider = total - mp - platform;
+    return { mp, platform, provider };
+}
+
 type Tab = "resumen" | "proveedores" | "usuarios" | "experiencias" | "reservas" | "reseñas" | "finanzas";
 
 type User = { id: string; email: string; full_name: string | null; role: string; created_at: string; suspended?: boolean; };
@@ -125,6 +135,8 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
 
     const filteredBookings = filterStatus === "all" ? bookings : bookings.filter((b) => b.status === filterStatus);
     const totalRevenue = bookings.filter((b) => b.status === "confirmed" || b.status === "completed").reduce((acc, b) => acc + (b.total_price ?? 0), 0);
+    const totalMPFees = bookings.filter((b) => b.total_price && (b.status === "confirmed" || b.status === "completed")).reduce((acc, b) => acc + getBreakdown(b.total_price ?? 0).mp, 0);
+    const totalPlatformFees = bookings.filter((b) => b.total_price && (b.status === "confirmed" || b.status === "completed")).reduce((acc, b) => acc + getBreakdown(b.total_price ?? 0).platform, 0);
     const avgRating = reviews.length > 0 ? (reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(1) : "—";
     const categories = [...new Set(experiences.map((e) => e.category).filter(Boolean))];
 
@@ -143,14 +155,12 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
     return (
         <div style={{ backgroundColor: COLORS.bg, minHeight: "100vh", paddingBottom: 60 }}>
 
-            {/* Toast */}
             {toast && (
                 <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, backgroundColor: toast.type === "ok" ? "#1C1917" : COLORS.red, color: "#fff", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}>
                     {toast.msg}
                 </div>
             )}
 
-            {/* Confirm Modal */}
             {confirmModal && (
                 <div style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <div style={{ backgroundColor: "#fff", borderRadius: 20, padding: 32, maxWidth: 400, width: "90%", textAlign: "center" }}>
@@ -163,7 +173,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                 </div>
             )}
 
-            {/* Modal ver documento */}
             {selectedDoc && (
                 <div onClick={() => setSelectedDoc(null)} style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
                     <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800, width: "100%", position: "relative" }}>
@@ -173,7 +182,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                 </div>
             )}
 
-            {/* Modal rechazar */}
             {rejectReason && (
                 <div style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <div style={{ backgroundColor: "#fff", borderRadius: 20, padding: 32, maxWidth: 440, width: "90%" }}>
@@ -189,7 +197,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                 </div>
             )}
 
-            {/* Header */}
             <header style={{ position: "sticky", top: 0, zIndex: 50, backgroundColor: "rgba(243,238,230,0.95)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${COLORS.border}`, padding: "16px 24px", display: "flex", alignItems: "center", gap: 12 }}>
                 <a href="/" style={{ fontSize: 13, color: "#888", textDecoration: "none" }}>← Inicio</a>
                 <span style={{ color: "#ccc" }}>|</span>
@@ -199,7 +206,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
 
             <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 24px 0" }}>
 
-                {/* Tabs */}
                 <div style={{ display: "flex", gap: 4, backgroundColor: "#fff", borderRadius: 16, padding: 5, border: `1px solid ${COLORS.border}`, width: "fit-content", marginBottom: 28, flexWrap: "wrap" }}>
                     {tabs.map((t) => (
                         <button key={t.id} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", backgroundColor: tab === t.id ? COLORS.green : "transparent", color: tab === t.id ? "#fff" : "#666", position: "relative" }}>
@@ -216,7 +222,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                     <div>
                         <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, marginTop: 0 }}>Solicitudes de proveedores</h2>
                         <p style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Revisá la documentación y aprobá o rechazá cada solicitud.</p>
-
                         {pendingProviders.length === 0 ? (
                             <div style={{ backgroundColor: "#fff", borderRadius: 20, padding: 48, textAlign: "center", border: `1px solid ${COLORS.border}` }}>
                                 <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
@@ -225,16 +230,9 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                         ) : pendingProviders.map((p) => (
                             <div key={p.id} style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 28, marginBottom: 16 }}>
                                 <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-
-                                    {/* Foto */}
                                     <div style={{ flexShrink: 0 }}>
-                                        {p.avatar_url
-                                            ? <img src={p.avatar_url} alt="foto" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: `2px solid ${COLORS.border}` }} />
-                                            : <div style={{ width: 72, height: 72, borderRadius: "50%", backgroundColor: COLORS.bg, border: `2px solid ${COLORS.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>👤</div>
-                                        }
+                                        {p.avatar_url ? <img src={p.avatar_url} alt="foto" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: `2px solid ${COLORS.border}` }} /> : <div style={{ width: 72, height: 72, borderRadius: "50%", backgroundColor: COLORS.bg, border: `2px solid ${COLORS.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>👤</div>}
                                     </div>
-
-                                    {/* Datos */}
                                     <div style={{ flex: 1, minWidth: 200 }}>
                                         <div style={{ fontSize: 18, fontWeight: 800, color: "#222" }}>{p.full_name || "Sin nombre"}</div>
                                         <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>{p.email}</div>
@@ -254,8 +252,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                             ) : null)}
                                         </div>
                                     </div>
-
-                                    {/* Acciones */}
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
                                         <button onClick={() => handleApproveProvider(p.id)} disabled={loadingId === p.id} style={{ backgroundColor: COLORS.green, color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: loadingId === p.id ? 0.6 : 1 }}>
                                             {loadingId === p.id ? "..." : "✓ Aprobar"}
@@ -265,8 +261,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                         </button>
                                     </div>
                                 </div>
-
-                                {/* Documentos */}
                                 <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${COLORS.border}` }}>
                                     <div style={{ fontSize: 13, fontWeight: 700, color: "#555", marginBottom: 12 }}>📄 Documentación</div>
                                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -275,8 +269,7 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                             { label: "DNI dorso", url: p.dni_dorso_url },
                                             { label: "Habilitación", url: p.habilitacion_url },
                                         ].map((doc) => (
-                                            <div key={doc.label} onClick={() => doc.url && setSelectedDoc(doc.url)}
-                                                style={{ border: `2px dashed ${doc.url ? COLORS.green : COLORS.border}`, borderRadius: 12, padding: "12px 20px", textAlign: "center", cursor: doc.url ? "pointer" : "default", backgroundColor: doc.url ? "#f0f7eb" : "#f9f7f4", minWidth: 120 }}>
+                                            <div key={doc.label} onClick={() => doc.url && setSelectedDoc(doc.url)} style={{ border: `2px dashed ${doc.url ? COLORS.green : COLORS.border}`, borderRadius: 12, padding: "12px 20px", textAlign: "center", cursor: doc.url ? "pointer" : "default", backgroundColor: doc.url ? "#f0f7eb" : "#f9f7f4", minWidth: 120 }}>
                                                 <div style={{ fontSize: 22, marginBottom: 4 }}>{doc.url ? "✅" : "❌"}</div>
                                                 <div style={{ fontSize: 12, fontWeight: 700, color: doc.url ? COLORS.green : "#aaa" }}>{doc.label}</div>
                                                 {doc.url && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>Click para ver</div>}
@@ -293,8 +286,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                 {tab === "resumen" && (
                     <div>
                         <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 20, marginTop: 0 }}>Resumen general</h2>
-
-                        {/* Alerta proveedores pendientes */}
                         {pendingProviders.length > 0 && (
                             <div onClick={() => setTab("proveedores")} style={{ backgroundColor: "#FEF3C7", border: `1px solid #FCD34D`, borderRadius: 16, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -304,7 +295,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                 <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.orange }}>Revisar →</span>
                             </div>
                         )}
-
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 28 }}>
                             {[
                                 { label: "Usuarios", value: stats.users, icon: "👥", sub: `${stats.providers} proveedores · ${stats.admins} admins`, color: "#64748B" },
@@ -321,7 +311,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                 </div>
                             ))}
                         </div>
-
                         <div style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 24, marginBottom: 20 }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>⚠️ Experiencias pendientes de publicar</h3>
@@ -344,7 +333,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                 </div>
                             ))}
                         </div>
-
                         <div style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 24, marginBottom: 20 }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>📅 Últimas reservas</h3>
@@ -366,7 +354,6 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                                 );
                             })}
                         </div>
-
                         <div style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 24 }}>
                             <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px" }}>⭐ Últimas reseñas</h3>
                             {reviews.slice(0, 5).map((r) => (
@@ -589,10 +576,11 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, marginBottom: 28 }}>
                             {[
                                 { label: "Ingresos totales", value: formatARS(totalRevenue), icon: "💰", color: COLORS.green, sub: "Confirmadas + completadas" },
+                                { label: "Comisiones MP", value: formatARS(totalMPFees), icon: "💳", color: "#e65100", sub: `${(MP_FEE_PCT * 100).toFixed(2)}% por transacción` },
+                                { label: "Comisiones plataforma", value: formatARS(totalPlatformFees), icon: "🌐", color: COLORS.purple, sub: `${(PLATFORM_FEE_PCT * 100).toFixed(0)}% por reserva` },
                                 { label: "Reservas activas", value: bookings.filter((b) => b.status === "confirmed").length, icon: "✅", color: COLORS.green, sub: "Estado: confirmada" },
                                 { label: "Completadas", value: bookings.filter((b) => b.status === "completed").length, icon: "🏁", color: "#0891B2", sub: "Estado: completada" },
                                 { label: "Canceladas", value: bookings.filter((b) => b.status === "cancelled").length, icon: "❌", color: COLORS.red, sub: "Estado: cancelada" },
-                                { label: "Ticket promedio", value: bookings.filter((b) => b.total_price && (b.status === "confirmed" || b.status === "completed")).length > 0 ? formatARS(totalRevenue / bookings.filter((b) => b.total_price && (b.status === "confirmed" || b.status === "completed")).length) : "—", icon: "🎫", color: COLORS.orange, sub: "Por reserva activa" },
                             ].map((s) => (
                                 <div key={s.label} style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: "20px 22px" }}>
                                     <div style={{ fontSize: 26, marginBottom: 4 }}>{s.icon}</div>
@@ -604,32 +592,38 @@ export default function AdminClient({ stats, users: initialUsers, experiences: i
                         </div>
                         <div style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 20, overflow: "hidden" }}>
                             <div style={{ padding: "16px 20px", borderBottom: `1px solid ${COLORS.border}`, fontWeight: 700, fontSize: 15 }}>Detalle por reserva</div>
-                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                <thead>
-                                    <tr style={{ backgroundColor: COLORS.bg }}>
-                                        {["Reserva", "Usuario", "Personas", "Monto", "Estado", "Fecha"].map((h) => (
-                                            <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: `1px solid ${COLORS.border}` }}>{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {bookings.filter((b) => b.total_price).length === 0 ? (
-                                        <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "#bbb", fontSize: 14 }}>Sin datos de ingresos aún.</td></tr>
-                                    ) : bookings.filter((b) => b.total_price).map((b, i) => {
-                                        const sc = statusColors[b.status] ?? { bg: "#f1f5f9", color: "#666", label: b.status };
-                                        return (
-                                            <tr key={b.id} style={{ borderBottom: i < bookings.length - 1 ? `1px solid ${COLORS.border}` : "none" }}>
-                                                <td style={{ padding: "12px 16px" }}><span style={{ fontFamily: "monospace", fontSize: 12, color: "#aaa" }}>#{b.id.slice(0, 8).toUpperCase()}</span></td>
-                                                <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13 }}>{b.user_name ?? "—"}</span></td>
-                                                <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13 }}>{b.people ?? 1}</span></td>
-                                                <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13, fontWeight: 700, color: COLORS.green }}>{formatARS(b.total_price ?? 0)}</span></td>
-                                                <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 999, backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span></td>
-                                                <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 12, color: "#aaa" }}>{formatDate(b.created_at)}</span></td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                            <div style={{ overflowX: "auto" }}>
+                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: COLORS.bg }}>
+                                            {["Reserva", "Usuario", "Pers.", "Total", "MP Fee", "Plataforma", "Neto proveedor", "Estado", "Fecha"].map((h) => (
+                                                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: `1px solid ${COLORS.border}`, whiteSpace: "nowrap" }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bookings.filter((b) => b.total_price).length === 0 ? (
+                                            <tr><td colSpan={9} style={{ padding: 32, textAlign: "center", color: "#bbb", fontSize: 14 }}>Sin datos de ingresos aún.</td></tr>
+                                        ) : bookings.filter((b) => b.total_price).map((b, i) => {
+                                            const sc = statusColors[b.status] ?? { bg: "#f1f5f9", color: "#666", label: b.status };
+                                            const bd = getBreakdown(b.total_price ?? 0);
+                                            return (
+                                                <tr key={b.id} style={{ borderBottom: i < bookings.length - 1 ? `1px solid ${COLORS.border}` : "none" }}>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontFamily: "monospace", fontSize: 12, color: "#aaa" }}>#{b.id.slice(0, 8).toUpperCase()}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13 }}>{b.user_name ?? "—"}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13 }}>{b.people ?? 1}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13, fontWeight: 700, color: COLORS.green }}>{formatARS(b.total_price ?? 0)}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13, color: "#e65100" }}>-{formatARS(bd.mp)}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13, color: COLORS.purple }}>-{formatARS(bd.platform)}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 13, fontWeight: 700, color: COLORS.green }}>{formatARS(bd.provider)}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 999, backgroundColor: sc.bg, color: sc.color }}>{sc.label}</span></td>
+                                                    <td style={{ padding: "12px 16px" }}><span style={{ fontSize: 12, color: "#aaa" }}>{formatDate(b.created_at)}</span></td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}
